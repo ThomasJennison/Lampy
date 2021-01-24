@@ -2,7 +2,7 @@
 
 #define MATRIX_DATA_PIN 6
 #define BUTTON_LED_PIN  3
-#define BUTTON_PIN_IN   8
+#define BUTTON_PIN_IN   2
 
 #define BRIGHTNESS  200
 #define FRAMES_PER_SECOND 60
@@ -10,26 +10,67 @@
 #define NUM_LEDS    64
 #define COLOR_ORDER GRB
 
+const int OFF_STATE = 0;
+const int WHITE_STATE = 1;
+const int FIRE_STATE = 2;
+int firstState = 0;
+int lastState = 2; 
+
 bool gReverseDirection = false;
 CRGB leds[NUM_LEDS];
 CRGBPalette16 gPal;
+volatile byte runState = LOW;
+int stateCount = 0;
 
 void setup()
 {
     pinMode(BUTTON_PIN_IN, INPUT_PULLUP);
-  
+    pinMode(BUTTON_LED_PIN, OUTPUT);
+
     delay(3000); // sanity delay
     FastLED.addLeds<CHIPSET, MATRIX_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
     FastLED.setBrightness( BRIGHTNESS );
 
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN_IN), onPressed, CHANGE);
+
     gPal = HeatColors_p;
+}
+
+void onPressed()
+{
+    stateCount++;
+
+    if (stateCount > lastState) 
+        stateCount = firstState;
 }
 
 void loop()
 {
-    Fire2012(); // run simulation frame
-    FastLED.show(); // display this frame
-    FastLED.delay(1000 / FRAMES_PER_SECOND);
+    switch (stateCount)
+    {
+        case OFF_STATE:
+            digitalWrite(BUTTON_LED_PIN, LOW);
+            FastLED.clear();  // clear all pixel data
+            FastLED.show();
+            delay(30);
+            break;
+        case WHITE_STATE:
+            digitalWrite(BUTTON_LED_PIN, HIGH);
+            for(int i = 0; i< NUM_LEDS; i++)
+            {
+                leds[i] = CRGB::White; 
+            }
+
+            FastLED.show(); 
+            delay(30);
+            break;
+        case FIRE_STATE:
+            digitalWrite(BUTTON_LED_PIN, HIGH);
+            Fire2012(); // run simulation frame
+            FastLED.show(); // display this frame
+            FastLED.delay(1000 / FRAMES_PER_SECOND);
+            break;
+    }
 }
 
 // v- The code below from the FastLED Example Lib  -v
