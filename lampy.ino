@@ -17,14 +17,12 @@ const int FUCSIA_STATE = 3;
 const int CYCLONE_STATE = 4;
 const int FIRE_STATE = 5;
 
-volatile int firstState = 0;
-volatile int lastState = FIRE_STATE; 
-
+int firstState = OFF_STATE;
+int lastState = FIRE_STATE; 
 
 CRGB leds[NUM_LEDS];
 CRGBPalette16 gPal;
-volatile int stateCount = 0;
-volatile byte lastButtonState;
+int stateCount = 0;
 
 void setup()
 {
@@ -42,17 +40,11 @@ void setup()
 
 void onPressed()
 {
-    byte state =  digitalRead(BUTTON_PIN_IN);
-
-    if(state != lastButtonState)
+    stateCount++;
+    if (stateCount > lastState) 
     {
-      stateCount++;
-      if (stateCount > lastState) 
-      {
-          stateCount = firstState;
-      }
+        stateCount = firstState;
     }
-    lastButtonState = state;
 }
 
 void loop()
@@ -94,6 +86,7 @@ void loop()
             digitalWrite(BUTTON_LED_PIN, HIGH);
             Cyclone(); // run simulation frame
             FastLED.show(); // display this frame
+            delay(10);
             break;
         case FIRE_STATE:
             digitalWrite(BUTTON_LED_PIN, HIGH);
