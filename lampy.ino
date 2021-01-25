@@ -12,15 +12,19 @@
 
 const int OFF_STATE = 0;
 const int WHITE_STATE = 1;
-const int FIRE_STATE = 2;
-int firstState = 0;
-int lastState = 2; 
+const int RED_STATE = 2;
+const int FUCSIA_STATE = 3;
+const int CYCLONE_STATE = 4;
+const int FIRE_STATE = 5;
 
-bool gReverseDirection = false;
+volatile int firstState = 0;
+volatile int lastState = FIRE_STATE; 
+
+
 CRGB leds[NUM_LEDS];
 CRGBPalette16 gPal;
-volatile byte runState = LOW;
-int stateCount = 0;
+volatile int stateCount = 0;
+volatile byte lastButtonState;
 
 void setup()
 {
@@ -31,17 +35,24 @@ void setup()
     FastLED.addLeds<CHIPSET, MATRIX_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
     FastLED.setBrightness( BRIGHTNESS );
 
-    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN_IN), onPressed, CHANGE);
-
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN_IN), onPressed, RISING);
+    
     gPal = HeatColors_p;
 }
 
 void onPressed()
 {
-    stateCount++;
+    byte state =  digitalRead(BUTTON_PIN_IN);
 
-    if (stateCount > lastState) 
-        stateCount = firstState;
+    if(state != lastButtonState)
+    {
+      stateCount++;
+      if (stateCount > lastState) 
+      {
+          stateCount = firstState;
+      }
+    }
+    lastButtonState = state;
 }
 
 void loop()
@@ -52,7 +63,6 @@ void loop()
             digitalWrite(BUTTON_LED_PIN, LOW);
             FastLED.clear();  // clear all pixel data
             FastLED.show();
-            delay(30);
             break;
         case WHITE_STATE:
             digitalWrite(BUTTON_LED_PIN, HIGH);
@@ -62,7 +72,28 @@ void loop()
             }
 
             FastLED.show(); 
-            delay(30);
+            break;
+        case RED_STATE:
+            digitalWrite(BUTTON_LED_PIN, HIGH);
+            for(int i = 0; i< NUM_LEDS; i++)
+            {
+                leds[i] = CRGB::Red; 
+            }
+            FastLED.show(); 
+            delay(10);
+            break;
+        case FUCSIA_STATE:
+            digitalWrite(BUTTON_LED_PIN, HIGH);
+            for(int i = 0; i< NUM_LEDS; i++)
+            {
+                leds[i] = CRGB::Fuchsia; 
+            }
+            delay(10);
+            break;
+        case CYCLONE_STATE:
+            digitalWrite(BUTTON_LED_PIN, HIGH);
+            Cyclone(); // run simulation frame
+            FastLED.show(); // display this frame
             break;
         case FIRE_STATE:
             digitalWrite(BUTTON_LED_PIN, HIGH);
@@ -71,6 +102,7 @@ void loop()
             FastLED.delay(1000 / FRAMES_PER_SECOND);
             break;
     }
+
 }
 
 // v- The code below from the FastLED Example Lib  -v
@@ -114,27 +146,32 @@ void loop()
 #define SPARKING 120
 void Fire2012()
 {
-// Array of temperature readings at each simulation cell
-  static byte heat[NUM_LEDS];
+    // Array of temperature readings at each simulation cell
+    static byte heat[NUM_LEDS];
+    bool gReverseDirection = false;
 
-  // Step 1.  Cool down every cell a little
-    for( int i = 0; i < NUM_LEDS; i++) {
+    // Step 1.  Cool down every cell a little
+    for( int i = 0; i < NUM_LEDS; i++) 
+    {
       heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
     }
   
     // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-    for( int k= NUM_LEDS - 1; k >= 2; k--) {
+    for( int k= NUM_LEDS - 1; k >= 2; k--) 
+    {
       heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
     }
     
     // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
-    if( random8() < SPARKING ) {
+    if( random8() < SPARKING ) 
+    {
       int y = random8(7);
       heat[y] = qadd8( heat[y], random8(160,255) );
     }
 
     // Step 4.  Map from heat cells to LED colors
-    for( int j = 0; j < NUM_LEDS; j++) {
+    for( int j = 0; j < NUM_LEDS; j++) 
+    {
       // Scale the heat value from 0-255 down to 0-240
       // for best results with color palettes.
       byte colorindex = scale8( heat[j], 240);
@@ -146,5 +183,38 @@ void Fire2012()
         pixelnumber = j;
       }
       leds[pixelnumber] = color;
+    }
+}
+
+void fadeall() { for(int i = 0; i < NUM_LEDS; i++) { leds[i].nscale8(250); } }
+void Cyclone()
+{
+    static uint8_t hue = 0;
+    // First slide the led in one direction
+    for(int i = 0; i < NUM_LEDS; i++) 
+    {
+      // Set the i'th led to red 
+      leds[i] = CHSV(hue++, 255, 255);
+      // Show the leds
+      FastLED.show(); 
+      // now that we've shown the leds, reset the i'th led to black
+      // leds[i] = CRGB::Black;
+      fadeall();
+      // Wait a little bit before we loop around and do it again
+      delay(10);
+    }
+
+    // Now go in the other direction.  
+    for(int i = (NUM_LEDS)-1; i >= 0; i--) 
+    {
+      // Set the i'th led to red 
+      leds[i] = CHSV(hue++, 255, 255);
+      // Show the leds
+      FastLED.show();
+      // now that we've shown the leds, reset the i'th led to black
+      // leds[i] = CRGB::Black;
+      fadeall();
+      // Wait a little bit before we loop around and do it again
+      delay(10);
     }
 }
